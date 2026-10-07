@@ -1,0 +1,26 @@
+{
+  "colors": {
+    "normal": "#c0caf5",
+    "active": "#7920c5",
+    "discarded": "#414a74",
+    "cursor_bg": "#290375",
+    "border": "#303aff",
+    "footer": "#414a74",
+    "prompt": "#00ffff",
+    "pin_marker": "#cc00fc"
+  },
+  "symbols": {
+    "pinned": "\uf435 "
+  },
+  "keybinds": {
+    "down": "C-j",
+    "up": "C-k",
+    "close": "C-d",
+    "discard": "C-u",
+    "pin": "C-p",
+    "sort": "C-s",
+    "center": "C-z",
+    "delete_word": "C-w",
+    "copy": "C-y"
+  }
+}
