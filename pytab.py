@@ -3,11 +3,13 @@
 # yay -Sy python-blessed wl-clipboard
 
 import json
+import queue
 import re
 import socket
 import subprocess
 import sys
 import termios
+import threading
 import time
 from pathlib import Path
 
@@ -59,14 +61,41 @@ STATE_PATH = STATE_DIR / "state.json"
 search_query = ""
 
 
-def send_action_to_browser(action, tab_id):
+ACTION_PORT = 9999
+_action_queue = queue.Queue()
+
+
+def _deliver(payload):
     try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.connect(("127.0.0.1", 9999))
-        s.sendall(f"{action} {tab_id}".encode("utf-8"))
-        s.close()
+        with socket.create_connection(("127.0.0.1", ACTION_PORT), timeout=1) as s:
+            s.sendall(payload)
+            s.shutdown(socket.SHUT_WR)
+            return s.recv(2) == b"ok"
     except Exception:
-        pass
+        return False
+
+
+def _action_worker():
+    while True:
+        payload = _action_queue.get()
+        for _ in range(60):  # ~2s of retries while the server restarts
+            if _deliver(payload):
+                break
+            time.sleep(0.03)
+        _action_queue.task_done()
+
+
+threading.Thread(target=_action_worker, daemon=True).start()
+
+
+def send_action_to_browser(action, tab_id):
+    _action_queue.put(f"{action} {tab_id}".encode("utf-8"))
+
+
+def flush_actions(timeout=2.5):
+    deadline = time.time() + timeout
+    while _action_queue.unfinished_tasks and time.time() < deadline:
+        time.sleep(0.01)
 
 
 def copy_to_clipboard(text):
@@ -627,6 +656,8 @@ def main():
             if not val.is_sequence and len(val) == 1 and 32 <= ord(val) <= 126:
                 search_query += val
                 cursor_idx = 0
+
+    flush_actions()
 
 
 if __name__ == "__main__":

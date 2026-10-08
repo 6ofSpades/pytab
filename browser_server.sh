@@ -27,6 +27,7 @@ try:
     conn, addr = s.accept()
     conn.settimeout(5)
     print(conn.recv(1024).decode("utf-8").strip(), flush=True)
+    conn.sendall(b"ok")
     conn.close()
 except socket.timeout:
     pass
