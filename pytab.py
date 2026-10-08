@@ -8,6 +8,7 @@ import socket
 import subprocess
 import sys
 import termios
+import time
 from pathlib import Path
 
 from blessed import Terminal
@@ -45,6 +46,9 @@ DEFAULT_KEYBINDS = {
     "center": "\x1a",  # Ctrl+Z
     "delete_word": "\x08",  # Ctrl+Backspace on kitty (same byte as Ctrl+H)
     "copy": "\x03",  # Ctrl+C -- safe to reuse since raw mode disables SIGINT
+    "switch_stay": "\x1d",  # Ctrl+Enter via kitty remap
+    "top": "\x01",  # Ctrl+A
+    "bottom": "\x05",  # Ctrl+E
 }
 
 CONFIG_DIR = Path.home() / ".config" / "tridactyl" / "pytab"
@@ -116,7 +120,7 @@ def parse_keybind_value(value):
 def keybind_display(ch):
     """Inverse of parse_keybind_value, for writing the starter config."""
     code = ord(ch)
-    if code < 0x20 and code != 0:
+    if 0 < code < 0x20 and chr(code + 0x40).isalpha():
         return "C-" + chr(code + 0x40).lower()
     return f"\\u{code:04x}"
 
@@ -364,7 +368,10 @@ def ctrl_label(ch):
 def build_footer(keybinds, width):
     footer = (
         f"{ctrl_label(keybinds['down'])}/{ctrl_label(keybinds['up'])} move  "
-        f"enter switch  {ctrl_label(keybinds['pin'])} pin  "
+        f"{ctrl_label(keybinds['top'])}/{ctrl_label(keybinds['bottom'])} top/bottom  "
+        f"enter switch  "
+        f"{ctrl_label(keybinds['switch_stay'])} switch-stay  "
+        f"{ctrl_label(keybinds['pin'])} pin  "
         f"{ctrl_label(keybinds['discard'])} discard  {ctrl_label(keybinds['close'])} close  "
         f"{ctrl_label(keybinds['sort'])} sort  {ctrl_label(keybinds['center'])} center  "
         f"{ctrl_label(keybinds['copy'])} copy url  "
@@ -594,6 +601,22 @@ def main():
                         if ok
                         else "copy failed -- is wl-copy installed?"
                     )
+                continue
+            elif val == keybinds["top"]:
+                cursor_idx = 0
+                continue
+            elif val == keybinds["bottom"]:
+                cursor_idx = max(0, len(sorted_list) - 1)
+                continue
+            elif val == keybinds["switch_stay"]:
+                if sorted_list:
+                    tid = sorted_list[cursor_idx]["id"]
+                    send_action_to_browser("switch-stay", tid)
+                    now_ms = int(time.time() * 1000)
+                    for t in raw_tabs:
+                        t["active"] = t["id"] == tid
+                        if t["id"] == tid:
+                            t["lastAccessed"] = now_ms
                 continue
             elif val.name == "KEY_ENTER" or val in ["\r", "\n"]:
                 if sorted_list:
