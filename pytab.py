@@ -493,74 +493,87 @@ def main():
 
     scroll_top = 0
     flash_text = None
+    dirty = True
+    last_size = (0, 0)
+    sorted_list = []
+    max_visible_rows = 1
 
     with term.raw(), term.hidden_cursor():
         saved_tty = save_tty()
         while True:
-            width = term.width
-            height = term.height
-            max_visible_rows = max(1, height - 7)
+            size = (term.width, term.height)
+            if dirty or size != last_size:
+                width, height = size
+                max_visible_rows = max(1, height - 7)
 
-            sorted_list = filter_and_sort(raw_tabs, sort_mode)
+                sorted_list = filter_and_sort(raw_tabs, sort_mode)
 
-            if cursor_idx >= len(sorted_list):
-                cursor_idx = max(0, len(sorted_list) - 1)
-            if cursor_idx < scroll_top:
-                scroll_top = cursor_idx
-            elif cursor_idx >= scroll_top + max_visible_rows:
-                scroll_top = cursor_idx - max_visible_rows + 1
+                if cursor_idx >= len(sorted_list):
+                    cursor_idx = max(0, len(sorted_list) - 1)
+                if cursor_idx < scroll_top:
+                    scroll_top = cursor_idx
+                elif cursor_idx >= scroll_top + max_visible_rows:
+                    scroll_top = cursor_idx - max_visible_rows + 1
 
-            border_fn = color_fn(colors, "border")
-            footer_fn = color_fn(colors, "footer")
-            prompt_fn = color_fn(colors, "prompt")
+                border_fn = color_fn(colors, "border")
+                footer_fn = color_fn(colors, "footer")
+                prompt_fn = color_fn(colors, "prompt")
 
-            output = [term.clear]
+                output = [term.clear]
 
-            find_prefix = prompt_fn("TABS => ") + term.normal + search_query + "█"
-            output.append(term.move_yx(1, 3) + find_prefix)
+                find_prefix = prompt_fn("TABS => ") + term.normal + search_query + "█"
+                output.append(term.move_yx(1, 3) + find_prefix)
 
-            sort_label = f"sort: {SORT_NAMES[sort_mode]}"
-            sort_col = width - len(sort_label) - 2
-            if sort_col > term.length(find_prefix) + 4:
-                output.append(term.move_yx(1, sort_col) + border_fn(sort_label))
+                sort_label = f"sort: {SORT_NAMES[sort_mode]}"
+                sort_col = width - len(sort_label) - 2
+                if sort_col > term.length(find_prefix) + 4:
+                    output.append(term.move_yx(1, sort_col) + border_fn(sort_label))
 
-            output.append(term.move_yx(2, 0) + border_fn("─" * width))
-            output.append(
-                term.move_yx(3, 1)
-                + term.normal
-                + f"{'ID':<4}"
-                + border_fn(f"{'│':<2}")
-                + term.normal
-                + f"{'Title':<{TITLE_WIDTH + 1}}"
-                + border_fn(f"{'│':<2}")
-                + term.normal
-                + f"{'URL'}"
-            )
-            output.append(term.move_yx(4, 0) + border_fn("─" * width))
-
-            for i in range(max_visible_rows):
-                list_idx = scroll_top + i
-                if list_idx >= len(sorted_list):
-                    break
-                row = i + 5
-                is_cursor = list_idx == cursor_idx
+                output.append(term.move_yx(2, 0) + border_fn("─" * width))
                 output.append(
-                    term.move_yx(row, 0)
-                    + build_row(
-                        colors, symbols, sorted_list[list_idx], is_cursor, width
+                    term.move_yx(3, 1)
+                    + term.normal
+                    + f"{'ID':<4}"
+                    + border_fn(f"{'│':<2}")
+                    + term.normal
+                    + f"{'Title':<{TITLE_WIDTH + 1}}"
+                    + border_fn(f"{'│':<2}")
+                    + term.normal
+                    + f"{'URL'}"
+                )
+                output.append(term.move_yx(4, 0) + border_fn("─" * width))
+
+                for i in range(max_visible_rows):
+                    list_idx = scroll_top + i
+                    if list_idx >= len(sorted_list):
+                        break
+                    row = i + 5
+                    is_cursor = list_idx == cursor_idx
+                    output.append(
+                        term.move_yx(row, 0)
+                        + build_row(
+                            colors, symbols, sorted_list[list_idx], is_cursor, width
+                        )
                     )
+
+                output.append(term.move_yx(height - 2, 0) + border_fn("─" * width))
+                footer_content = (
+                    flash_text if flash_text else build_footer(keybinds, width)
+                )
+                output.append(
+                    term.move_yx(height - 1, 0) + footer_fn(footer_content[: width - 1])
                 )
 
-            output.append(term.move_yx(height - 2, 0) + border_fn("─" * width))
-            footer_content = flash_text if flash_text else build_footer(keybinds, width)
-            output.append(
-                term.move_yx(height - 1, 0) + footer_fn(footer_content[: width - 1])
-            )
-            flash_text = None  # only shown for the frame right after it's set
+                print("".join(output), end="", flush=True)
 
-            print("".join(output), end="", flush=True)
+                flash_text = None
+                dirty = False
+                last_size = size
 
-            val = term.inkey(esc_delay=0)
+            val = term.inkey(timeout=0.1, esc_delay=0)
+            if not val:
+                continue
+            dirty = True
 
             if val.name == "KEY_ESCAPE":
                 send_action_to_browser("exit", 0)
@@ -624,7 +637,7 @@ def main():
                 if sorted_list:
                     url = tab_url(sorted_list[cursor_idx])
                     ok = copy_to_clipboard(url)
-                    restore_tty(save_tty)
+                    restore_tty(saved_tty)
                     flash_text = (
                         f"copied: {url}"
                         if ok
