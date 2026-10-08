@@ -396,14 +396,13 @@ def ctrl_label(ch):
 
 def build_footer(keybinds, width):
     footer = (
-        f"{ctrl_label(keybinds['down'])}/{ctrl_label(keybinds['up'])} move  "
-        f"{ctrl_label(keybinds['top'])}/{ctrl_label(keybinds['bottom'])} top/bottom  "
-        f"enter switch  "
-        f"{ctrl_label(keybinds['switch_stay'])} switch-stay  "
-        f"{ctrl_label(keybinds['pin'])} pin  "
-        f"{ctrl_label(keybinds['discard'])} discard  {ctrl_label(keybinds['close'])} close  "
-        f"{ctrl_label(keybinds['sort'])} sort  {ctrl_label(keybinds['center'])} center  "
-        f"{ctrl_label(keybinds['copy'])} copy url  "
+        f"{ctrl_label(keybinds['down'])}/{ctrl_label(keybinds['up'])}/{ctrl_label(keybinds['top'])}/{ctrl_label(keybinds['bottom'])} move · "
+        f"enter switch · "
+        f"{ctrl_label(keybinds['switch_stay'])} switch-stay · "
+        f"{ctrl_label(keybinds['pin'])} pin · "
+        f"{ctrl_label(keybinds['discard'])} discard  {ctrl_label(keybinds['close'])} close · "
+        f"{ctrl_label(keybinds['sort'])} sort  {ctrl_label(keybinds['center'])} center · "
+        f"{ctrl_label(keybinds['copy'])} copy url · "
         f"esc quit"
     )
     return footer[: width - 1]
